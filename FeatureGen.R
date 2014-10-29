@@ -3,64 +3,36 @@ library(plyr)
 library(reshape2)
 library(sm)
 
+setwd("/export/home/mraza/IFC_Analysis/IFC_Analysis")
 source('FeatureGenHelper.R')
 
-#setwd("F:\\GhanaAnalysis2")
 
-sdate<-'Oct26th-2014'
+sdate<-'Oct29th-2014'
 
 inputPath<-'./input_normal/'
 outputPath<-'./features_normal/'
 
-
-
-
-
-
-#prefixes<-c('normal','mm','mmtop')
-prefixes<-c('mmtop')
+prefixes<-c('normal','mm','mmtop')
+#prefixes<-c('mmtop')
 
 for( i in prefixes){
   print (i)
   inputPath<-paste(paste('input_',i,sep=''),'/',sep='')
-  #   fileName<-'dbo.tcdr.txt_random.csv'
-  #   
-  #   TCDRFilePath<-paste(inputPath,fileName,sep='')
-  #   TCDRSummary<-processTCDRFile(TCDRFilePath,"NormalDataSummary.csv")
-  #   TCDRCallerSummary<-TCDRSummary$CallerSummary
-  #   TCDRCallerTypeSummary<-TCDRSummary$CallerTypeSummary
-  #   TCDRCalleeSummary<-TCDRSummary$CalleeSummary
-  #   TCDRCalleeTypeSummary<-TCDRSummary$CalleeTypeSummary
-  #   
-  #   colnames(TCDRCalleeSummary)[1]<-'CallerId'
-  #   
-  #   TCDRSummary<-merge(x=TCDRCallerSummary,y=TCDRCalleeSummary,
-  #                      by="CallerId",all.x=TRUE)
-  #   colnames(TCDRSummary)<-c('CallerId','TotalTCDRSent','TotalTCDRSentDistinctDays',
-  #                            'TotalTCCDRDistinctTypes','TotalTCDRSentCreditorAmount',
-  #                            'TotalTCDRUniqueOrigCell','TotalTCDRSentUniqueDestCell','TotalTCDRSentUniqueReceivers',
-  #                            'TotalTCDRRecieved','TotalTCDRRecievedDistinctDays',
-  #                            'TotalTCCDRDistinctTypes','TotalTCDRRecievedCreditorAmount',
-  #                            'TotalTCDRUniqueOrigCell','TotalTCDRRecievedUniqueDestCell',
-  #                            'TotalTCDRRecievedUniqueReceivers'
-  #   )
-  #   TCDRSummary[is.na(TCDRSummary)]<-0
-  #   
   print(paste('Processing Data for',i))
   fileName<-'dbo.data.txt_random.csv'
   dataFilePath<-paste(inputPath,fileName,sep='')
   dataSummary<-processDataFile(dataFilePath,"NormalDataSummary.csv")
   colnames(dataSummary)<-c('CallerId',
                            'TotalDataTransactions',
-                           'TotalDataDistinctDays','TotalDataDistinctCells')
+                           'TotalDataDistinctDays','TotalDataDistinctLocations')
   
   print(paste('Processing Reload for',i))
   fileName<-'dbo.reloads.txt_random.csv'
   dataFilePath<-paste(inputPath,fileName,sep='')
   lst<-processReloadFile(dataFilePath,"NormalReloadsSummary.csv")
   ReloadsSummary<-lst$ReloadsSummary
-  colnames(ReloadsSummary)<-c('CallerId','TotalReloadTransactions','TotalReloadDistinctDays',
-                              'TotalReloadDistinctCells')
+  colnames(ReloadsSummary)<-c('CallerId','TotalReloadTransactions','TotalReloadDays',
+                              'TotalReloadDistinctLocations')
   
   
   ReloadsTypeSummary<-lst$ReloadsTypeSummary
@@ -69,18 +41,25 @@ for( i in prefixes){
   colnames(ReloadsTypevsDays)<-c('CallerId','E-Pin-ReloadDays','EVC-ReloadDays',
                                  'MVOU-ReloadDays','TIGCASH-ReloadDays',
                                  'VOU-ReloadDays')
+
+  #RemovingTIGCash - it is MM
+  ReloadsTypevsDays<-ReloadTypevsDays[,!names(ReloadTypevsDays) %in% c('TIGCASH-ReloadDays')]
+
   ReloadsTypevsTransactions<-dcast(ReloadsTypeSummary,CallerID~EventType, 
                                    value.var='TotalTransactions')
-  colnames(ReloadsTypevsTransactions)<-c('CallerId','E-Pin-ReloadTrans','EVC-ReloadTrans',
-                                         'MVOU-ReloadTrans',
-                                         'TIGCASH-ReloadTrans','VOU-ReloadTrans')
+  colnames(ReloadsTypevsTransactions)<-c('CallerId','E-Pin-ReloadTransactions','EVC-ReloadTransactions',
+                                         'MVOU-ReloadTransaction',
+                                         'TIGCASH-ReloadTransactions','VOU-ReloadTransactions')
+
+  ReloadsTypevsTransactions<-ReloadTypevsTransactions[,!names(ReloadTypevsTransactions) %in% c('TIGCASH-ReloadTransactions')]
+
   print(paste('Processing Solution for',i))
   fileName<-'dbo.solution.txt_random.csv'
   dataFilePath<-paste(inputPath,fileName,sep='')
   soln<-processSolutionFile(dataFilePath,"NormalSolutionSummary.csv")
   SolutionsSummary<-soln$SolutionsSummary
   colnames(SolutionsSummary)<-c('CallerId','TotalSolutionTransactions',
-                                'TotalSolutionDistinctDays','TotalSolutionDistinctEvents')
+                                'TotalSolutionDays','TotalSolutionUsed')
   head(SolutionsSummary)
   SolutionsTypeSummary<-soln$SolutionsTypeSummary
   head(SolutionsTypeSummary)
@@ -100,15 +79,15 @@ for( i in prefixes){
   SolutionsTypevsTransactions<-dcast(SolutionsTypeSummary,CallerID~EventType,
                                      value.var='TotalTransactions')
   
-  colnames(SolutionsTypevsTransactions)<-c("CallerId","ALLNETSMS-SolutionTrans",
-                                           "BLACKBERRY-SolutionTrans",
-                                           "CRBTNewSource-SolutionTrans",
-                                           "OutgoingSMS-MT-SolutionTrans",
-                                           "SMART-TEXT-SOlutionTrans",                    
-                                           "TAG-TRIGGER-SolutionTrans",
-                                           "TigoNumber1-SolutionTrans",
-                                           "TigoSOS-SolutionTrans",
-                                           "TIGOXTRATIME_1MINUTEBORROW-SolutionTrans")
+  colnames(SolutionsTypevsTransactions)<-c("CallerId","ALLNETSMS-SolutionTransactions",
+                                           "BLACKBERRY-SolutionTransactions",
+                                           "CRBTNewSource-SolutionTransactions",
+                                           "OutgoingSMS-MT-SolutionTransactions",
+                                           "SMART-TEXT-SOlutionTransactions",                    
+                                           "TAG-TRIGGER-SolutionTransactions",
+                                           "TigoNumber1-SolutionTransactions",
+                                           "TigoSOS-SolutionTransactions",
+                                           "TIGOXTRATIME_1MINUTEBORROW-SolutionTransactions")
   head(SolutionsTypevsTransactions,2)
   print(paste('Processing sms for',i))
   fileName<-'dbo.sms.txt_random.csv'
@@ -116,14 +95,14 @@ for( i in prefixes){
   lst<-processSMSFile(dataFilePath,"NormalSMSSummary.csv")
   callerSMSSummary<-lst$callerSummary
   colnames(callerSMSSummary)<-c('CallerId','TotalSMSSent',
-                                'TotalSMSSentDistinctDays',
-                                'TotalSMSSentDistinctRecipients')
+                                'TotalSMSSentDays',
+                                'TotalSMSRecipients')
   head(callerSMSSummary)
   
   calleeSMSSummary<-lst$calleeSummary
   colnames(calleeSMSSummary)<-c('CallerId','TotalSMSReceived',
-                                'TotalSMSReceivedDistinctDays',
-                                'TotalSMSReceivedDistinctSenders')
+                                'TotalSMSReceivedDays',
+                                'TotalSMSSenders')
   
   SMSSummary<-merge(x=callerSMSSummary,y=calleeSMSSummary,by="CallerId",all.x=TRUE)
   
@@ -133,16 +112,16 @@ for( i in prefixes){
   lst<-processVoiceFile(dataFilePath,"NormalVoiceSummary.csv")
   callerVoiceSummary<-lst$callerSummary
   colnames(callerVoiceSummary)<-c('CallerId','TotalCallsSent',
-                                  'TotalCallsSentDistinctDays',
-                                  'TotalCallsSentDistinctRecipients',
-                                  'TotalCallsSentDistinctCallerCell',
-                                  'TotalCallsSentDistinctRecipientCell')
+                                  'TotalCallsSentDays',
+                                  'TotalCallsRecipients',
+                                  'TotalCallsSentDistinctCallerLocations',
+                                  'TotalCallsSentDistinctCalleeLocations')
   calleeVoiceSummary<-lst$calleeSummary
   colnames(calleeVoiceSummary)<-c('CallerId','TotalCallsRecieved',
-                                  'TotalCallsRecievedDistinctDays',
-                                  'TotalCallsRecievedDistinctRecipients',
-                                  'TotalCallsRecievedDistinctCallerCell',
-                                  'TotalCallsRecievedDistinctRecipientCell')
+                                  'TotalCallsRecievedDays',
+                                  'TotalCallsRecievedDistinctSenders',
+                                  'TotalCallsRecievedDistinctCallerLocations',
+                                  'TotalCallsRecievedDistinctCalleeLocations')
   
   VoiceSummary<-merge(x=callerVoiceSummary,y=calleeVoiceSummary,
                       by="CallerId",all.x=TRUE)
@@ -170,6 +149,15 @@ combinedTables<-NULL
 combinedTablesNormal<-read.csv('CombinedTables_normal.csv')
 combinedTablesMM<-read.csv('CombinedTables_mm.csv')
 
+combinedTablesMMTop<-read.csv('CombinedTables_mmtop.csv')
+combinedTablesMMTop<-combinedTablesMMTop[!apply(is.na(combinedTablesMMTop), 1, any), ]
+
+combinedTablesNormal<-combinedTablesNormal[!apply(is.na(combinedTablesNormal), 1, any), ]
+combinedTablesMM<-combinedTablesMM[!apply(is.na(combinedTablesMM), 1, any), ]
+
+combinedTablesNormal<-combinedTablesNormal[combinedTablesNormal$TotalCallsSent!=0,]
+combinedTablesMM<-combinedTablesMM[combinedTablesMM$TotalCallsSent!=0,]
+combinedTablesMMTop<-combinedTablesMMTop[combinedTablesMMTop$TotalCallsSent!=0,]
 #combinedTablesMM[apply(is.na(combinedTablesMM), 1, any), ]
 
 #combinedTablesNormal<-combinedTablesNormal[!is.na(combinedTablesNormal),]
@@ -193,7 +181,7 @@ for(each in cnames) {
   data1[,paste('log2',each,sep='-')]<-ifelse(data1[,each]>0,log2(data1[,each]),0)  
 }
 
-write.csv(data1,paste("DataNormalMM",".csv",sep=""),quote=FALSE)
+write.csv(data1,paste("DataNormalMM-Call1Threshold",".csv",sep=""),quote=FALSE)
 
 #combinedTablesMM<-NULL
 
@@ -247,8 +235,6 @@ x=featuresTtest(data1,dataLabels)
 
 write.csv(x,file=paste(sdate,'TTest-NormalvsMM.csv',sep='-'),quote=FALSE)
 #combinedTablesMMTop<-NULL
-combinedTablesMMTop<-read.csv('CombinedTables_mmtop.csv')
-combinedTablesMMTop<-combinedTablesMMTop[!apply(is.na(combinedTablesMMTop), 1, any), ]
 data1<-rbind(combinedTablesNormal,combinedTablesMMTop)
 cnames<-colnames(data1)
 
@@ -266,9 +252,9 @@ for(each in cnames) {  print (each)
 combinedTablesNormal<-NULL
 combinedTablesMMTop<-NULL
 gc()
-write.csv(data1,paste("DataNormalMMTop",".csv",sep=""),quote=FALSE)
+write.csv(data1,paste("DataNormalMMTop-Call1Threshold",".csv",sep=""),quote=FALSE)
 
-data1<-read.csv('DataNormalMMTop.csv')
+#data1<-read.csv('DataNormalMMTop-Call1Threshold.csv')
 data1$UserType <- gsub("normal", "0", data1$UserType)
 data1$UserType <- gsub("mmtop", "1", data1$UserType)
 dataLabels <- factor(data1$UserType)
