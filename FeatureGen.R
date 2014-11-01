@@ -5,9 +5,12 @@ library(sm)
 
 setwd("/export/home/mraza/IFC_Analysis/IFC_Analysis")
 source('FeatureGenHelper.R')
+source('StatAnalysis/TTest.R')
+source('StatAnalysis/OutliersRemoval.R')
 
 
-sdate<-'Oct29th-2014'
+
+sdate<-'Oct31-2014'
 
 inputPath<-'./input_normal/'
 outputPath<-'./features_normal/'
@@ -158,13 +161,6 @@ combinedTablesMM<-combinedTablesMM[!apply(is.na(combinedTablesMM), 1, any), ]
 combinedTablesNormal<-combinedTablesNormal[combinedTablesNormal$TotalCallsSent!=0,]
 combinedTablesMM<-combinedTablesMM[combinedTablesMM$TotalCallsSent!=0,]
 combinedTablesMMTop<-combinedTablesMMTop[combinedTablesMMTop$TotalCallsSent!=0,]
-#combinedTablesMM[apply(is.na(combinedTablesMM), 1, any), ]
-
-#combinedTablesNormal<-combinedTablesNormal[!is.na(combinedTablesNormal),]
-#combinedTablesMM<-combinedTablesMM[!is.na(combinedTablesMM),]
-
-
-#data1<-combinedTablesNormal
 data1<-rbind(combinedTablesNormal,combinedTablesMM)
 
 cnames<-colnames(data1)
@@ -173,6 +169,10 @@ cnames<-cnames[!cnames %in% c("X","CallerId","UserType")]
 #cnames[c("X","CallerId","UserType")]<-NULL
 
 
+#Winsorizing
+for(each in cnames) {  print (each)
+	data1[,each]<-custom_winsorize(data1[,each])
+}
 
 for(each in cnames) {
   print (each)
@@ -183,57 +183,15 @@ for(each in cnames) {
 
 write.csv(data1,paste("DataNormalMM-Call1Threshold",".csv",sep=""),quote=FALSE)
 
-#combinedTablesMM<-NULL
-
-
-#data1<-data1[!is.na(data1),]
-
-featuresTtest <- function(data1,dataLabels){
-  library(plyr)
-  library(sm)
-  combos <- combn(ncol(data1),1)
-  #colnos <- seq(1,ncol(data),by=1)
-  
-  adply(combos, 2, function(x) {
-    ttest <- t.test(data1[, x[1]]~dataLabels)
-    descriptors1 <- summary(data1[dataLabels == '0', x[1]])
-    descriptors2 <- summary(data1[dataLabels == '1', x[1]])
-    
-    out <- data.frame("feature" = colnames(data1)[x[1]]
-                      , "min - 0" = descriptors1[1]
-                      , "min - 1" = descriptors2[1]
-                      #, "1st Qu." = descriptors[2]
-                      , "median - 0" = descriptors1[3]
-                      , "median - 1" = descriptors2[3]
-                      , "mean - 0" = descriptors1[4]
-                      , "mean - 1" = descriptors2[4]
-                      , "diff of means" = (descriptors1[4] - descriptors2[4])
-                      #, "3rd Qu." = descriptors[5]
-                      , "max - 0" = descriptors1[6]
-                      , "max - 1" = descriptors2[6]
-                      , "t.value" = sprintf("%f", ttest$statistic)
-                      ,  "df"= ttest$parameter
-                      ,  "p.value" = sprintf("%f", ttest$p.value)
-    )
-    return(out)
-    
-  })
-}
-
-#replaceInf(data1,0)
-
-
 data1$UserType <- gsub("normal", "0", data1$UserType)
 data1$UserType <- gsub("mm", "1", data1$UserType)
 dataLabels <- factor(data1$UserType)
 data1 <- subset(data1, select = -c(UserType))
 
-
-
 print('Running T test')
-x=featuresTtest(data1,dataLabels)
+TTestNormalvsMM=featuresTtest(data1,dataLabels)
 
-write.csv(x,file=paste(sdate,'TTest-NormalvsMM.csv',sep='-'),quote=FALSE)
+write.csv(TTestNormalvsMM,file=paste(sdate,'TTest-NormalvsMM.csv',sep='-'),quote=FALSE)
 #combinedTablesMMTop<-NULL
 data1<-rbind(combinedTablesNormal,combinedTablesMMTop)
 cnames<-colnames(data1)
@@ -242,6 +200,10 @@ cnames<-cnames[!cnames %in% c("X","CallerId","UserType")]
 #cnames[c("X","CallerId","UserType")]<-NULL
 
 
+#Winsorizing
+for(each in cnames) {  print (each)
+	data1[,each]<-custom_winsorize(data1[,each])
+}
 
 for(each in cnames) {  print (each)
                        data1[,paste('sq',each,sep='-')]<-data1[,each]^2
@@ -249,8 +211,8 @@ for(each in cnames) {  print (each)
                        data1[,paste('log2',each,sep='-')]<-ifelse(data1[,each]>0,log2(data1[,each]),0)  
 }
 
-combinedTablesNormal<-NULL
-combinedTablesMMTop<-NULL
+
+
 gc()
 write.csv(data1,paste("DataNormalMMTop-Call1Threshold",".csv",sep=""),quote=FALSE)
 
@@ -263,6 +225,6 @@ data1 <- subset(data1, select = -c(UserType))
 sum(is.na(data1))
 
 print('Running T test')
-x=featuresTtest(data1,dataLabels)
+TTestNormalvsMMTop=featuresTtest(data1,dataLabels)
 
-write.csv(x,file=paste(sdate,'TTest-NormalvsMMTop.csv',sep='-'),quote=FALSE)
+write.csv(TTestNormalvsMMTop,file=paste(sdate,'TTest-NormalvsMMTop.csv',sep='-'),quote=FALSE)
